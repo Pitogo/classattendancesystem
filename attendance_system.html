@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClassRFID — Attendance System</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e14; --surface: #0f1621; --border: #1c2a3a;
+    --accent: #00d4ff; --accent2: #00ff88; --warn: #ff6b35;
+    --text: #c8d8e8; --dim: #4a6070; --card: #111b27;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Barlow Condensed', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; }
+  body::after { content: ''; position: fixed; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px); pointer-events: none; z-index: 0; }
+  .container { max-width: 1300px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+  header { border-bottom: 1px solid var(--border); padding: 16px 0; position: sticky; top: 0; background: rgba(10,14,20,0.95); backdrop-filter: blur(12px); z-index: 100; }
+  .header-inner { display: flex; align-items: center; justify-content: space-between; }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon { width: 36px; height: 36px; border: 2px solid var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px rgba(0,212,255,0.3); }
+  .logo-icon svg { width: 20px; height: 20px; }
+  .logo-text { font-size: 22px; font-weight: 900; letter-spacing: 3px; color: #fff; text-transform: uppercase; }
+  .logo-text span { color: var(--accent); }
+  .status-bar { display: flex; align-items: center; gap: 20px; font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--dim); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 8px var(--accent2); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  nav { display: flex; gap: 4px; }
+  .nav-btn { padding: 6px 16px; background: transparent; border: 1px solid var(--border); color: var(--dim); font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; transition: all 0.2s; border-radius: 3px; }
+  .nav-btn:hover, .nav-btn.active { background: rgba(0,212,255,0.08); border-color: var(--accent); color: var(--accent); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .dashboard-grid { display: grid; grid-template-columns: 280px 1fr 280px; gap: 20px; padding: 24px 0; min-height: calc(100vh - 80px); }
+  .scanner-panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+  .panel-label { font-size: 11px; font-weight: 700; letter-spacing: 3px; color: var(--dim); text-transform: uppercase; align-self: flex-start; }
+  .rfid-zone { width: 160px; height: 160px; border-radius: 50%; border: 2px solid var(--accent); position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 0 30px rgba(0,212,255,0.15); transition: all 0.3s; }
+  .rfid-zone:hover { box-shadow: 0 0 50px rgba(0,212,255,0.35); transform: scale(1.03); }
+  .rfid-zone.scanning { animation: scan-pulse 1s ease-in-out infinite; }
+  .rfid-zone.success { border-color: var(--accent2); box-shadow: 0 0 50px rgba(0,255,136,0.5); }
+  @keyframes scan-pulse { 0%, 100% { box-shadow: 0 0 30px rgba(0,212,255,0.2); } 50% { box-shadow: 0 0 60px rgba(0,212,255,0.6); } }
+  .rfid-ring { position: absolute; inset: -10px; border-radius: 50%; border: 1px solid rgba(0,212,255,0.2); animation: ring-expand 2s linear infinite; }
+  .rfid-ring:nth-child(2) { animation-delay: 0.7s; }
+  @keyframes ring-expand { 0% { transform: scale(1); opacity: 0.5; } 100% { transform: scale(1.3); opacity: 0; } }
+  .rfid-icon { font-size: 52px; z-index: 1; }
+  .rfid-label { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--accent); letter-spacing: 2px; text-align: center; }
+  .scan-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, rgba(0,212,255,0.1), rgba(0,212,255,0.05)); border: 1px solid var(--accent); color: var(--accent); font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; border-radius: 4px; transition: all 0.2s; }
+  .scan-btn:hover { background: rgba(0,212,255,0.15); box-shadow: 0 0 20px rgba(0,212,255,0.2); }
+  .recent-scan { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px; }
+  .recent-scan-title { font-size: 10px; font-weight: 700; letter-spacing: 2px; color: var(--dim); margin-bottom: 10px; }
+  .scan-result { display: none; flex-direction: column; gap: 6px; }
+  .scan-result.show { display: flex; }
+  .scan-name { font-size: 18px; font-weight: 700; color: #fff; }
+  .scan-id { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--accent); }
+  .scan-time { font-size: 11px; color: var(--dim); }
+  .scan-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+  .scan-badge.in { background: rgba(0,255,136,0.15); color: var(--accent2); border: 1px solid rgba(0,255,136,0.3); }
+  .scan-badge.out { background: rgba(255,107,53,0.15); color: var(--warn); border: 1px solid rgba(255,107,53,0.3); }
+  .main-panel { display: flex; flex-direction: column; gap: 20px; }
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; position: relative; overflow: hidden; }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent); }
+  .stat-card:nth-child(2)::before { background: var(--accent2); }
+  .stat-card:nth-child(3)::before { background: var(--warn); }
+  .stat-card:nth-child(4)::before { background: #a78bfa; }
+  .stat-val { font-size: 36px; font-weight: 900; color: #fff; line-height: 1; margin-bottom: 4px; }
+  .stat-label { font-size: 11px; font-weight: 600; letter-spacing: 2px; color: var(--dim); text-transform: uppercase; }
+  .table-panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; flex: 1; overflow: hidden; }
+  .table-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .table-title { font-size: 14px; font-weight: 700; letter-spacing: 2px; color: #fff; text-transform: uppercase; }
+  .filter-row { display: flex; gap: 8px; align-items: center; }
+  .filter-btn { padding: 4px 12px; background: var(--surface); border: 1px solid var(--border); color: var(--dim); font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; border-radius: 3px; transition: all 0.2s; }
+  .filter-btn:hover, .filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,0.07); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  thead th { padding: 10px 20px; text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 2px; color: var(--dim); text-transform: uppercase; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+  tbody tr { border-bottom: 1px solid rgba(28,42,58,0.5); transition: background 0.15s; }
+  tbody tr:hover { background: rgba(0,212,255,0.04); }
+  td { padding: 12px 20px; color: var(--text); }
+  .student-cell { display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  .student-name { font-weight: 600; color: #fff; }
+  .student-id { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--dim); }
+  .tag { display: inline-block; padding: 3px 10px; border-radius: 3px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+  .tag.present { background: rgba(0,255,136,0.12); color: var(--accent2); }
+  .tag.absent { background: rgba(255,107,53,0.12); color: var(--warn); }
+  .tag.late { background: rgba(255,200,0,0.12); color: #ffc800; }
+  .pct { font-family: 'Share Tech Mono', monospace; font-size: 13px; }
+  .pct.high { color: var(--accent2); } .pct.mid { color: #ffc800; } .pct.low { color: var(--warn); }
+  .right-panel { display: flex; flex-direction: column; gap: 16px; }
+  .info-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+  .card-title { font-size: 11px; font-weight: 700; letter-spacing: 3px; color: var(--dim); text-transform: uppercase; margin-bottom: 14px; }
+  .arduino-box { background: #0d1a10; border: 1px solid #1a3a1e; border-radius: 6px; padding: 14px; font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #4a8a5a; line-height: 1.8; }
+  .pin-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; border-bottom: 1px solid rgba(26,58,30,0.5); }
+  .pin-label { color: #2a6a3a; } .pin-wire { flex: 1; border-top: 1px dashed #1a3a1e; margin: 0 8px; } .pin-name { color: #6abf7a; }
+  .log-feed { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
+  .log-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--surface); border-radius: 4px; font-family: 'Share Tech Mono', monospace; font-size: 11px; animation: slide-in 0.3s ease-out; }
+  @keyframes slide-in { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+  .log-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .log-dot.ok { background: var(--accent2); } .log-dot.err { background: var(--warn); } .log-dot.info { background: var(--accent); }
+  .log-time { color: var(--dim); } .log-msg { color: var(--text); flex: 1; }
+  .progress-list { display: flex; flex-direction: column; gap: 12px; }
+  .progress-item label { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+  .progress-item label span { color: var(--dim); font-family: 'Share Tech Mono', monospace; }
+  .progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 2px; transition: width 1s ease-out; }
+  .page-header { padding: 28px 0 20px; border-bottom: 1px solid var(--border); margin-bottom: 28px; }
+  .page-title { font-size: 32px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; color: #fff; }
+  .page-sub { font-size: 14px; color: var(--dim); margin-top: 4px; }
+  .students-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; padding-bottom: 32px; }
+  .student-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; transition: border-color 0.2s, transform 0.2s; cursor: pointer; }
+  .student-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .student-card .avatar { width: 50px; height: 50px; font-size: 20px; }
+  .student-card .student-name { font-size: 16px; text-align: center; }
+  .student-card .student-id { text-align: center; }
+  .pct-bar { width: 100%; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 6px; }
+  .code-block { background: #050a0f; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
+  .code-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: rgba(0,0,0,0.3); border-bottom: 1px solid var(--border); }
+  .code-lang { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--accent); text-transform: uppercase; }
+  .copy-btn { padding: 4px 12px; background: var(--surface); border: 1px solid var(--border); color: var(--dim); font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 1px; cursor: pointer; border-radius: 3px; transition: all 0.2s; }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+  pre { padding: 20px; font-family: 'Share Tech Mono', monospace; font-size: 12px; line-height: 1.7; overflow-x: auto; color: #8fbcbb; max-height: 400px; overflow-y: auto; }
+  .kw { color: #81a1c1; } .fn { color: #88c0d0; } .str { color: #a3be8c; } .num { color: #b48ead; } .cmt { color: #4a6070; font-style: italic; } .type { color: #ebcb8b; }
+  .wiring-diagram { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 28px; display: flex; justify-content: center; }
+  .diagram-svg { width: 100%; max-width: 700px; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; } ::-webkit-scrollbar-track { background: var(--surface); } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  @media (max-width: 1100px) { .dashboard-grid { grid-template-columns: 1fr; } .stats-row { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<header>
+  <div class="container">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2">
+            <rect x="3" y="6" width="18" height="13" rx="2"/>
+            <path d="M8 6V4m8 2V4M3 10h18"/>
+            <circle cx="8" cy="15" r="1.5" fill="#00d4ff" stroke="none"/>
+          </svg>
+        </div>
+        <span class="logo-text">Class<span>RFID</span></span>
+      </div>
+      <nav>
+        <button class="nav-btn active" onclick="switchTab('dashboard', this)">Dashboard</button>
+        <button class="nav-btn" onclick="switchTab('students', this)">Students</button>
+        <button class="nav-btn" onclick="switchTab('arduino', this)">Arduino Code</button>
+        <button class="nav-btn" onclick="switchTab('wiring', this)">Wiring</button>
+      </nav>
+      <div class="status-bar">
+        <div class="status-dot"></div>
+        <span id="clock">--:--:--</span>
+        <span>SYSTEM ONLINE</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- DASHBOARD -->
+<div id="tab-dashboard" class="tab-content active">
+<div class="container">
+<div class="dashboard-grid">
+  <div class="scanner-panel">
+    <span class="panel-label">RFID Scanner</span>
+    <div class="rfid-zone" id="rfidZone" onclick="simulateScan()">
+      <div class="rfid-ring"></div>
+      <div class="rfid-ring"></div>
+      <span class="rfid-icon">📡</span>
+    </div>
+    <div class="rfid-label" id="scanStatus">TAP TO SIMULATE SCAN</div>
+    <button class="scan-btn" onclick="simulateScan()">▶ SIMULATE RFID SCAN</button>
+    <div class="recent-scan" style="width:100%">
+      <div class="recent-scan-title">LAST SCANNED</div>
+      <div class="scan-result" id="scanResult">
+        <span class="scan-name" id="scanName">—</span>
+        <span class="scan-id" id="scanId">UID: —</span>
+        <span class="scan-time" id="scanTime">—</span>
+        <span class="scan-badge in" id="scanBadge">IN</span>
+      </div>
+    </div>
+    <div style="width:100%">
+      <div class="card-title">ARDUINO PIN MAPPING</div>
+      <div class="arduino-box">
+        <div class="pin-row"><span class="pin-label">SDA</span><span class="pin-wire"></span><span class="pin-name">Pin 10</span></div>
+        <div class="pin-row"><span class="pin-label">SCK</span><span class="pin-wire"></span><span class="pin-name">Pin 13</span></div>
+        <div class="pin-row"><span class="pin-label">MOSI</span><span class="pin-wire"></span><span class="pin-name">Pin 11</span></div>
+        <div class="pin-row"><span class="pin-label">MISO</span><span class="pin-wire"></span><span class="pin-name">Pin 12</span></div>
+        <div class="pin-row"><span class="pin-label">RST</span><span class="pin-wire"></span><span class="pin-name">Pin 9</span></div>
+        <div class="pin-row" style="border:none"><span class="pin-label">3.3V / GND</span><span class="pin-wire"></span><span class="pin-name">Power</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-panel">
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-val">9</div><div class="stat-label">Total Students</div></div>
+      <div class="stat-card"><div class="stat-val">5</div><div class="stat-label">Present Today</div></div>
+      <div class="stat-card"><div class="stat-val">2</div><div class="stat-label">Absent</div></div>
+      <div class="stat-card"><div class="stat-val">2</div><div class="stat-label">Late Arrivals</div></div>
+    </div>
+    <div class="table-panel">
+      <div class="table-header">
+        <span class="table-title">Attendance Log — Today</span>
+        <div class="filter-row">
+          <button class="filter-btn active" onclick="filterTable('all',this)">All</button>
+          <button class="filter-btn" onclick="filterTable('present',this)">Present</button>
+          <button class="filter-btn" onclick="filterTable('absent',this)">Absent</button>
+          <button class="filter-btn" onclick="filterTable('late',this)">Late</button>
+        </div>
+      </div>
+      <table><thead><tr><th>Student</th><th>RFID UID</th><th>Scan Time</th><th>Status</th><th>Attend %</th></tr></thead>
+      <tbody id="tableBody"></tbody></table>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="info-card">
+      <div class="card-title">LIVE EVENT LOG</div>
+      <div class="log-feed" id="logFeed"></div>
+    </div>
+    <div class="info-card">
+      <div class="card-title">ATTENDANCE BY SUBJECT</div>
+      <div class="progress-list">
+        <div class="progress-item"><label>Physics 101 <span>87%</span></label><div class="progress-bar"><div class="progress-fill" style="width:87%"></div></div></div>
+        <div class="progress-item"><label>Math 201 <span>92%</span></label><div class="progress-bar"><div class="progress-fill" style="width:92%"></div></div></div>
+        <div class="progress-item"><label>CS 301 <span>75%</span></label><div class="progress-bar"><div class="progress-fill" style="width:75%"></div></div></div>
+        <div class="progress-item"><label>Eng 101 <span>95%</span></label><div class="progress-bar"><div class="progress-fill" style="width:95%"></div></div></div>
+      </div>
+    </div>
+    <div class="info-card">
+      <div class="card-title">HARDWARE STATUS</div>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;">
+        <div style="display:flex;justify-content:space-between"><span>Arduino UNO</span><span style="color:var(--accent2);font-family:'Share Tech Mono',monospace;font-size:11px;">● CONNECTED</span></div>
+        <div style="display:flex;justify-content:space-between"><span>MFRC522 Reader</span><span style="color:var(--accent2);font-family:'Share Tech Mono',monospace;font-size:11px;">● ONLINE</span></div>
+        <div style="display:flex;justify-content:space-between"><span>LCD Display</span><span style="color:var(--accent2);font-family:'Share Tech Mono',monospace;font-size:11px;">● ACTIVE</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Buzzer</span><span style="color:var(--accent2);font-family:'Share Tech Mono',monospace;font-size:11px;">● READY</span></div>
+        <div style="display:flex;justify-content:space-between"><span>SD Card</span><span style="color:#ffc800;font-family:'Share Tech Mono',monospace;font-size:11px;">● 2.1GB FREE</span></div>
+      </div>
+    </div>
+  </div>
+</div></div></div>
+
+<!-- STUDENTS -->
+<div id="tab-students" class="tab-content">
+<div class="container">
+  <div class="page-header"><div class="page-title">Student Registry</div><div class="page-sub">All registered RFID cards and attendance summary</div></div>
+  <div class="students-grid" id="studentsGrid"></div>
+</div></div>
+
+<!-- ARDUINO CODE -->
+<div id="tab-arduino" class="tab-content">
+<div class="container">
+  <div class="page-header"><div class="page-title">Arduino Source Code</div><div class="page-sub">MFRC522 RFID + LCD + SD Card — copy and flash to your board</div></div>
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">Arduino C++ — Main Sketch</span><button class="copy-btn" onclick="copyCode('code1')">Copy</button></div>
+    <pre id="code1"><span class="cmt">// ClassRFID — Classroom Attendance System
+// Hardware: Arduino UNO + MFRC522 + 16x2 LCD + Buzzer</span>
+
+<span class="kw">#include</span> <span class="str">&lt;SPI.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;MFRC522.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;LiquidCrystal_I2C.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;SD.h&gt;</span>
+
+<span class="kw">#define</span> <span class="type">RST_PIN</span>    <span class="num">9</span>
+<span class="kw">#define</span> <span class="type">SS_PIN</span>     <span class="num">10</span>
+<span class="kw">#define</span> <span class="type">BUZZER_PIN</span> <span class="num">8</span>
+<span class="kw">#define</span> <span class="type">GREEN_LED</span>  <span class="num">7</span>
+<span class="kw">#define</span> <span class="type">RED_LED</span>    <span class="num">6</span>
+<span class="kw">#define</span> <span class="type">SD_CS_PIN</span>  <span class="num">4</span>
+
+<span class="type">MFRC522</span>           rfid(<span class="type">SS_PIN</span>, <span class="type">RST_PIN</span>);
+<span class="type">LiquidCrystal_I2C</span> lcd(<span class="num">0x27</span>, <span class="num">16</span>, <span class="num">2</span>);
+
+<span class="kw">struct</span> <span class="type">Student</span> { <span class="type">String</span> uid; <span class="type">String</span> name; <span class="type">String</span> studentId; };
+
+<span class="kw">const int</span> NUM_STUDENTS = <span class="num">9</span>;
+<span class="type">Student</span> students[NUM_STUDENTS] = {
+  { <span class="str">"A1B2C3D4"</span>, <span class="str">"Gabriel del Mundo"</span>,        <span class="str">"STU-001"</span> },
+  { <span class="str">"E5F6G7H8"</span>, <span class="str">"Floyd Dillera"</span>,            <span class="str">"STU-002"</span> },
+  { <span class="str">"I9J0K1L2"</span>, <span class="str">"Maverick Ferrer"</span>,          <span class="str">"STU-003"</span> },
+  { <span class="str">"M3N4O5P6"</span>, <span class="str">"Austin Honra"</span>,             <span class="str">"STU-004"</span> },
+  { <span class="str">"Q7R8S9T0"</span>, <span class="str">"Christian Allen Laguerta"</span>,  <span class="str">"STU-005"</span> },
+  { <span class="str">"U1V2W3X4"</span>, <span class="str">"Jamir Ninonuevo"</span>,          <span class="str">"STU-006"</span> },
+  { <span class="str">"Y5Z6A7B8"</span>, <span class="str">"Gerald Opalla"</span>,            <span class="str">"STU-007"</span> },
+  { <span class="str">"C9D0E1F2"</span>, <span class="str">"Brixs James Pitogo"</span>,       <span class="str">"STU-008"</span> },
+  { <span class="str">"G3H4I5J6"</span>, <span class="str">"Princess Rivera"</span>,          <span class="str">"STU-009"</span> }
+};
+
+<span class="type">String</span> logFileName = <span class="str">"attend.csv"</span>;
+<span class="kw">bool</span> sdAvailable = <span class="kw">false</span>;
+
+<span class="kw">void</span> <span class="fn">setup</span>() {
+  Serial.<span class="fn">begin</span>(<span class="num">9600</span>);
+  SPI.<span class="fn">begin</span>(); rfid.<span class="fn">PCD_Init</span>();
+  lcd.<span class="fn">init</span>(); lcd.<span class="fn">backlight</span>();
+  lcd.<span class="fn">print</span>(<span class="str">"ClassRFID v1.0"</span>);
+  lcd.<span class="fn">setCursor</span>(<span class="num">0</span>,<span class="num">1</span>); lcd.<span class="fn">print</span>(<span class="str">"Scan your card.."</span>);
+  <span class="fn">pinMode</span>(<span class="type">BUZZER_PIN</span>,OUTPUT); <span class="fn">pinMode</span>(<span class="type">GREEN_LED</span>,OUTPUT); <span class="fn">pinMode</span>(<span class="type">RED_LED</span>,OUTPUT);
+  <span class="kw">if</span>(SD.<span class="fn">begin</span>(<span class="type">SD_CS_PIN</span>)){ sdAvailable=<span class="kw">true</span>; <span class="fn">initCSV</span>(); }
+  <span class="fn">beep</span>(<span class="num">1</span>,<span class="num">100</span>);
+}
+
+<span class="kw">void</span> <span class="fn">loop</span>() {
+  <span class="kw">if</span>(!rfid.<span class="fn">PICC_IsNewCardPresent</span>()||!rfid.<span class="fn">PICC_ReadCardSerial</span>()) <span class="kw">return</span>;
+  <span class="type">String</span> uid = <span class="fn">getUID</span>();
+  <span class="kw">int</span> idx = <span class="fn">findStudent</span>(uid);
+  <span class="kw">if</span>(idx>=<span class="num">0</span>) <span class="fn">handlePresent</span>(idx); <span class="kw">else</span> <span class="fn">handleUnknown</span>(uid);
+  rfid.<span class="fn">PICC_HaltA</span>(); rfid.<span class="fn">PCD_StopCrypto1</span>(); <span class="fn">delay</span>(<span class="num">1500</span>);
+}
+
+<span class="kw">void</span> <span class="fn">handlePresent</span>(<span class="kw">int</span> idx) {
+  <span class="type">String</span> name=students[idx].name, sid=students[idx].studentId;
+  lcd.<span class="fn">clear</span>(); lcd.<span class="fn">print</span>(name); lcd.<span class="fn">setCursor</span>(<span class="num">0</span>,<span class="num">1</span>); lcd.<span class="fn">print</span>(<span class="str">"Welcome! ✓"</span>);
+  <span class="fn">digitalWrite</span>(<span class="type">GREEN_LED</span>,HIGH); <span class="fn">beep</span>(<span class="num">2</span>,<span class="num">80</span>); <span class="fn">delay</span>(<span class="num">200</span>); <span class="fn">digitalWrite</span>(<span class="type">GREEN_LED</span>,LOW);
+  <span class="fn">logToSD</span>(sid, name, <span class="fn">getTimestamp</span>(), <span class="str">"PRESENT"</span>);
+}
+
+<span class="kw">void</span> <span class="fn">handleUnknown</span>(<span class="type">String</span> uid) {
+  lcd.<span class="fn">clear</span>(); lcd.<span class="fn">print</span>(<span class="str">"ACCESS DENIED"</span>); lcd.<span class="fn">setCursor</span>(<span class="num">0</span>,<span class="num">1</span>); lcd.<span class="fn">print</span>(<span class="str">"Unknown card!"</span>);
+  <span class="fn">digitalWrite</span>(<span class="type">RED_LED</span>,HIGH); <span class="fn">beep</span>(<span class="num">3</span>,<span class="num">200</span>); <span class="fn">delay</span>(<span class="num">200</span>); <span class="fn">digitalWrite</span>(<span class="type">RED_LED</span>,LOW);
+}
+
+<span class="type">String</span> <span class="fn">getUID</span>() {
+  <span class="type">String</span> uid=<span class="str">""</span>;
+  <span class="kw">for</span>(<span class="kw">byte</span> i=<span class="num">0</span>;i&lt;rfid.uid.size;i++){ <span class="kw">if</span>(rfid.uid.uidByte[i]&lt;<span class="num">0x10</span>) uid+=<span class="str">"0"</span>; uid+=<span class="type">String</span>(rfid.uid.uidByte[i],HEX); }
+  uid.<span class="fn">toUpperCase</span>(); <span class="kw">return</span> uid;
+}
+
+<span class="kw">int</span> <span class="fn">findStudent</span>(<span class="type">String</span> uid) {
+  <span class="kw">for</span>(<span class="kw">int</span> i=<span class="num">0</span>;i&lt;NUM_STUDENTS;i++) <span class="kw">if</span>(students[i].uid==uid) <span class="kw">return</span> i;
+  <span class="kw">return</span> <span class="num">-1</span>;
+}
+
+<span class="kw">void</span> <span class="fn">beep</span>(<span class="kw">int</span> t,<span class="kw">int</span> ms){ <span class="kw">for</span>(<span class="kw">int</span> i=<span class="num">0</span>;i&lt;t;i++){ <span class="fn">tone</span>(<span class="type">BUZZER_PIN</span>,<span class="num">1000</span>,ms); <span class="fn">delay</span>(ms+<span class="num">50</span>); } }
+
+<span class="type">String</span> <span class="fn">getTimestamp</span>() {
+  <span class="kw">unsigned long</span> ms=<span class="fn">millis</span>();
+  <span class="kw">return</span> <span class="type">String</span>((ms/<span class="num">3600000</span>)%<span class="num">24</span>)+<span class="str">":"</span>+<span class="type">String</span>((ms/<span class="num">60000</span>)%<span class="num">60</span>)+<span class="str">":"</span>+<span class="type">String</span>((ms/<span class="num">1000</span>)%<span class="num">60</span>);
+}
+
+<span class="kw">void</span> <span class="fn">initCSV</span>() {
+  <span class="kw">if</span>(!SD.<span class="fn">exists</span>(logFileName)){ <span class="type">File</span> f=SD.<span class="fn">open</span>(logFileName,FILE_WRITE); <span class="kw">if</span>(f){ f.<span class="fn">println</span>(<span class="str">"StudentID,Name,Time,Status"</span>); f.<span class="fn">close</span>(); } }
+}
+
+<span class="kw">void</span> <span class="fn">logToSD</span>(<span class="type">String</span> sid,<span class="type">String</span> name,<span class="type">String</span> ts,<span class="type">String</span> status) {
+  <span class="kw">if</span>(!sdAvailable) <span class="kw">return</span>;
+  <span class="type">File</span> f=SD.<span class="fn">open</span>(logFileName,FILE_WRITE); <span class="kw">if</span>(f){ f.<span class="fn">println</span>(sid+<span class="str">","</span>+name+<span class="str">","</span>+ts+<span class="str">","</span>+status); f.<span class="fn">close</span>(); }
+}</pre>
+  </div>
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">Required Libraries</span></div>
+    <pre><span class="cmt"># Arduino IDE Library Manager — search and install:</span>
+
+<span class="str">MFRC522</span>           <span class="cmt">by miguelbalboa</span>
+<span class="str">LiquidCrystal I2C</span> <span class="cmt">by Frank de Brabander</span>
+<span class="str">SD</span>                <span class="cmt">built-in</span>
+<span class="str">SPI</span>               <span class="cmt">built-in</span>
+<span class="str">RTClib</span>            <span class="cmt">by Adafruit (optional — for DS3231 RTC)</span></pre>
+  </div>
+</div></div>
+
+<!-- WIRING -->
+<div id="tab-wiring" class="tab-content">
+<div class="container">
+  <div class="page-header"><div class="page-title">Wiring Diagram</div><div class="page-sub">Arduino UNO ↔ MFRC522 RFID + LCD I2C + Buzzer + LEDs</div></div>
+  <div class="wiring-diagram">
+    <svg class="diagram-svg" viewBox="0 0 700 450" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="700" height="450" fill="#0a0e14" rx="10"/>
+      <rect x="260" y="150" width="180" height="200" rx="8" fill="#0f1f10" stroke="#2a6a3a" stroke-width="2"/>
+      <text x="350" y="178" text-anchor="middle" fill="#6abf7a" font-family="Share Tech Mono" font-size="13" font-weight="bold">ARDUINO UNO</text>
+      <text x="268" y="205" fill="#4a8a5a" font-family="Share Tech Mono" font-size="9">3.3V</text>
+      <text x="268" y="222" fill="#4a8a5a" font-family="Share Tech Mono" font-size="9">GND</text>
+      <text x="268" y="240" fill="#4a8a5a" font-family="Share Tech Mono" font-size="9">Pin 9</text>
+      <text x="268" y="258" fill="#4a8a5a" font-family="Share Tech Mono" font-size="9">Pin 10</text>
+      <text x="268" y="276" fill="#4a8a5a" font-family="Share Tech Mono" font-size="9">Pin 11</text>
+      <text x="268" y="294" fill="#4a8a5a" font-family="Share Tech Mono" font-size="9">Pin 12</text>
+      <text x="268" y="312" fill="#4a8a5a" font-family="Share Tech Mono" font-size="9">Pin 13</text>
+      <circle cx="258" cy="202" r="4" fill="#2a6a3a"/><circle cx="258" cy="219" r="4" fill="#2a6a3a"/><circle cx="258" cy="237" r="4" fill="#2a6a3a"/><circle cx="258" cy="255" r="4" fill="#2a6a3a"/><circle cx="258" cy="272" r="4" fill="#2a6a3a"/><circle cx="258" cy="290" r="4" fill="#2a6a3a"/><circle cx="258" cy="307" r="4" fill="#2a6a3a"/>
+      <text x="442" y="205" fill="#4a8a5a" font-family="Share Tech Mono" font-size="9">Pin 8</text>
+      <text x="442" y="222" fill="#4a8a5a" font-family="Share Tech Mono" font-size="9">Pin 7</text>
+      <text x="442" y="240" fill="#4a8a5a" font-family="Share Tech Mono" font-size="9">Pin 6</text>
+      <text x="442" y="258" fill="#4a8a5a" font-family="Share Tech Mono" font-size="9">SDA</text>
+      <text x="442" y="276" fill="#4a8a5a" font-family="Share Tech Mono" font-size="9">SCL</text>
+      <circle cx="440" cy="202" r="4" fill="#2a6a3a"/><circle cx="440" cy="219" r="4" fill="#2a6a3a"/><circle cx="440" cy="237" r="4" fill="#2a6a3a"/><circle cx="440" cy="255" r="4" fill="#2a6a3a"/><circle cx="440" cy="272" r="4" fill="#2a6a3a"/>
+      <rect x="60" y="130" width="120" height="100" rx="6" fill="#0a1520" stroke="#1a3a5a" stroke-width="2"/>
+      <text x="120" y="155" text-anchor="middle" fill="#5aacdc" font-family="Share Tech Mono" font-size="11" font-weight="bold">MFRC522</text>
+      <text x="120" y="170" text-anchor="middle" fill="#3a7a9a" font-family="Share Tech Mono" font-size="9">RFID Reader</text>
+      <text x="75" y="190" fill="#3a6a8a" font-family="Share Tech Mono" font-size="8">3.3V GND RST</text>
+      <text x="75" y="205" fill="#3a6a8a" font-family="Share Tech Mono" font-size="8">SDA MOSI MISO SCK</text>
+      <line x1="180" y1="185" x2="258" y2="202" stroke="#ff6b35" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <line x1="180" y1="193" x2="258" y2="219" stroke="#333" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <line x1="180" y1="201" x2="258" y2="237" stroke="#88c0d0" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <line x1="180" y1="209" x2="258" y2="255" stroke="#00d4ff" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <line x1="180" y1="217" x2="258" y2="272" stroke="#5aacdc" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <line x1="180" y1="225" x2="258" y2="290" stroke="#88c0d0" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <line x1="180" y1="233" x2="258" y2="307" stroke="#4a90b0" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <rect x="490" y="120" width="140" height="80" rx="6" fill="#1a1a00" stroke="#6a6a00" stroke-width="2"/>
+      <text x="560" y="148" text-anchor="middle" fill="#cccc00" font-family="Share Tech Mono" font-size="11" font-weight="bold">16x2 LCD</text>
+      <text x="560" y="163" text-anchor="middle" fill="#8a8a00" font-family="Share Tech Mono" font-size="9">I2C Backpack</text>
+      <text x="500" y="185" fill="#6a6a00" font-family="Share Tech Mono" font-size="8">VCC GND SDA SCL</text>
+      <line x1="490" y1="255" x2="440" y2="255" stroke="#00d4ff" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <line x1="490" y1="272" x2="440" y2="272" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <line x1="490" y1="163" x2="490" y2="255" stroke="#00d4ff" stroke-width="1" stroke-dasharray="2,3"/>
+      <line x1="502" y1="163" x2="502" y2="272" stroke="#a78bfa" stroke-width="1" stroke-dasharray="2,3"/>
+      <circle cx="580" cy="320" r="30" fill="#1a0a0a" stroke="#6a3030" stroke-width="2"/>
+      <text x="580" y="316" text-anchor="middle" fill="#dc5a5a" font-family="Share Tech Mono" font-size="10" font-weight="bold">BUZZ</text>
+      <text x="580" y="330" text-anchor="middle" fill="#8a3030" font-family="Share Tech Mono" font-size="8">5V</text>
+      <line x1="553" y1="310" x2="440" y2="202" stroke="#ff6b35" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <circle cx="560" cy="400" r="12" fill="#003300" stroke="#00aa00" stroke-width="2"/>
+      <text x="560" y="405" text-anchor="middle" fill="#00ff00" font-family="Share Tech Mono" font-size="8">G</text>
+      <circle cx="600" cy="400" r="12" fill="#330000" stroke="#aa0000" stroke-width="2"/>
+      <text x="600" y="405" text-anchor="middle" fill="#ff4444" font-family="Share Tech Mono" font-size="8">R</text>
+      <line x1="555" y1="388" x2="440" y2="219" stroke="#00ff00" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <line x1="595" y1="388" x2="440" y2="237" stroke="#ff4444" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="20" y="430" fill="#4a6070" font-family="Share Tech Mono" font-size="9">--- Dashed lines = wires</text>
+      <text x="220" y="430" fill="#ff6b35" font-family="Share Tech Mono" font-size="9">■ 3.3V</text>
+      <text x="270" y="430" fill="#333" font-family="Share Tech Mono" font-size="9">■ GND</text>
+      <text x="310" y="430" fill="#00d4ff" font-family="Share Tech Mono" font-size="9">■ SDA</text>
+      <text x="355" y="430" fill="#a78bfa" font-family="Share Tech Mono" font-size="9">■ SCL</text>
+      <text x="400" y="430" fill="#5aacdc" font-family="Share Tech Mono" font-size="9">■ MISO</text>
+      <text x="453" y="430" fill="#88c0d0" font-family="Share Tech Mono" font-size="9">■ SCK</text>
+    </svg>
+  </div>
+  <div style="margin-top:20px;padding:20px;background:var(--card);border:1px solid var(--border);border-radius:8px;">
+    <div class="card-title">COMPONENT LIST (Bill of Materials)</div>
+    <table style="width:100%">
+      <thead><tr><th>Component</th><th>Qty</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Arduino UNO R3</td><td>1</td><td>Or Nano / Mega</td></tr>
+        <tr><td>MFRC522 RFID Module</td><td>1</td><td>3.3V logic — do NOT connect to 5V</td></tr>
+        <tr><td>RFID Cards / Key Fobs</td><td>9</td><td>One per student</td></tr>
+        <tr><td>16×2 LCD with I2C backpack</td><td>1</td><td>Address 0x27 or 0x3F</td></tr>
+        <tr><td>Active Buzzer</td><td>1</td><td>5V active type</td></tr>
+        <tr><td>Green LED + 220Ω resistor</td><td>1</td><td>Access granted indicator</td></tr>
+        <tr><td>Red LED + 220Ω resistor</td><td>1</td><td>Access denied indicator</td></tr>
+        <tr><td>MicroSD Card Module</td><td>1</td><td>For logging to CSV</td></tr>
+        <tr><td>MicroSD Card (FAT32)</td><td>1</td><td>Any size ≥ 1GB</td></tr>
+        <tr><td>Jumper Wires</td><td>~20</td><td>Male-to-male</td></tr>
+        <tr><td>Breadboard</td><td>1</td><td>Half-size or full-size</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div></div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────
+const students = [
+  { name: "Gabriel del Mundo",        id: "STU-001", uid: "A1B2C3D4", color: "#6366f1", status: "present", time: "07:45:12", pct: 95 },
+  { name: "Floyd Dillera",            id: "STU-002", uid: "E5F6G7H8", color: "#0ea5e9", status: "present", time: "07:48:30", pct: 88 },
+  { name: "Maverick Ferrer",          id: "STU-003", uid: "I9J0K1L2", color: "#ec4899", status: "late",    time: "08:22:05", pct: 72 },
+  { name: "Austin Honra",             id: "STU-004", uid: "M3N4O5P6", color: "#f59e0b", status: "absent",  time: "—",        pct: 65 },
+  { name: "Christian Allen Laguerta", id: "STU-005", uid: "Q7R8S9T0", color: "#10b981", status: "present", time: "07:50:44", pct: 91 },
+  { name: "Jamir Ninonuevo",          id: "STU-006", uid: "U1V2W3X4", color: "#f43f5e", status: "absent",  time: "—",        pct: 58 },
+  { name: "Gerald Opalla",            id: "STU-007", uid: "Y5Z6A7B8", color: "#8b5cf6", status: "present", time: "07:52:18", pct: 84 },
+  { name: "Brixs James Pitogo",       id: "STU-008", uid: "C9D0E1F2", color: "#06b6d4", status: "present", time: "07:55:01", pct: 97 },
+  { name: "Princess Rivera",          id: "STU-009", uid: "G3H4I5J6", color: "#a3e635", status: "late",    time: "08:15:33", pct: 78 },
+];
+
+const logs = [];
+let currentFilter = 'all';
+
+function renderTable(filter = 'all') {
+  const tbody = document.getElementById('tableBody');
+  const rows = students.filter(s => filter === 'all' || s.status === filter);
+  tbody.innerHTML = rows.map(s => {
+    const initials = s.name.split(' ').map(w => w[0]).join('');
+    const pctClass = s.pct >= 85 ? 'high' : s.pct >= 70 ? 'mid' : 'low';
+    return `<tr data-status="${s.status}">
+      <td><div class="student-cell">
+        <div class="avatar" style="background:${s.color}22;color:${s.color};border:1px solid ${s.color}44">${initials}</div>
+        <div><div class="student-name">${s.name}</div><div class="student-id">${s.id}</div></div>
+      </div></td>
+      <td><span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim)">${s.uid}</span></td>
+      <td><span style="font-family:'Share Tech Mono',monospace;font-size:12px">${s.time}</span></td>
+      <td><span class="tag ${s.status}">${s.status}</span></td>
+      <td><span class="pct ${pctClass}">${s.pct}%</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterTable(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable(f);
+}
+
+function renderStudents() {
+  const grid = document.getElementById('studentsGrid');
+  grid.innerHTML = students.map(s => {
+    const initials = s.name.split(' ').map(w => w[0]).join('');
+    const pctClass = s.pct >= 85 ? 'high' : s.pct >= 70 ? 'mid' : 'low';
+    return `<div class="student-card">
+      <div class="avatar" style="background:${s.color}22;color:${s.color};border:1px solid ${s.color}44;width:50px;height:50px;font-size:20px">${initials}</div>
+      <div class="student-name">${s.name}</div>
+      <div class="student-id">${s.id}</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim)">${s.uid}</div>
+      <span class="tag ${s.status}">${s.status}</span>
+      <div style="width:100%">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+          <span style="color:var(--dim)">Attendance</span><span class="pct ${pctClass}">${s.pct}%</span>
+        </div>
+        <div class="pct-bar"><div style="height:100%;width:${s.pct}%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let scanIdx = 0;
+function simulateScan() {
+  const zone = document.getElementById('rfidZone');
+  zone.classList.add('scanning');
+  document.getElementById('scanStatus').textContent = 'READING CARD...';
+  setTimeout(() => {
+    zone.classList.remove('scanning');
+    zone.classList.add('success');
+    const s = students[scanIdx % students.length];
+    scanIdx++;
+    const ts = new Date().toTimeString().split(' ')[0];
+    document.getElementById('scanResult').classList.add('show');
+    document.getElementById('scanName').textContent = s.name;
+    document.getElementById('scanId').textContent = 'UID: ' + s.uid;
+    document.getElementById('scanTime').textContent = ts;
+    document.getElementById('scanBadge').textContent = s.status.toUpperCase();
+    document.getElementById('scanBadge').className = 'scan-badge ' + (s.status === 'absent' ? 'out' : 'in');
+    document.getElementById('scanStatus').textContent = '✓ ' + s.name.toUpperCase();
+    addLog('ok', ts, s.name + ' — ' + s.status.toUpperCase());
+    setTimeout(() => { zone.classList.remove('success'); document.getElementById('scanStatus').textContent = 'TAP TO SIMULATE SCAN'; }, 2000);
+  }, 800);
+}
+
+function addLog(type, time, msg) {
+  const feed = document.getElementById('logFeed');
+  const el = document.createElement('div');
+  el.className = 'log-item';
+  el.innerHTML = `<div class="log-dot ${type}"></div><span class="log-time">${time}</span><span class="log-msg">${msg}</span>`;
+  feed.insertBefore(el, feed.firstChild);
+  if (feed.children.length > 8) feed.removeChild(feed.lastChild);
+}
+
+function updateClock() { document.getElementById('clock').textContent = new Date().toTimeString().split(' ')[0]; }
+setInterval(updateClock, 1000);
+updateClock();
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+function copyCode(id) {
+  const pre = document.getElementById(id);
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    const btn = pre.previousElementSibling?.querySelector('.copy-btn');
+    if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => btn.textContent = 'Copy', 2000); }
+  });
+}
+
+renderTable();
+renderStudents();
+
+const seedLogs = [
+  ['ok',   '07:45:12', 'Gabriel del Mundo — PRESENT'],
+  ['ok',   '07:48:30', 'Floyd Dillera — PRESENT'],
+  ['ok',   '07:50:44', 'Christian Allen Laguerta — PRESENT'],
+  ['err',  '07:51:00', 'Unknown UID: FF11AA22'],
+  ['info', '08:15:33', 'Princess Rivera — LATE'],
+];
+seedLogs.reverse().forEach(([t,ts,m]) => addLog(t, ts, m));
+</script>
+</body>
+</html>
